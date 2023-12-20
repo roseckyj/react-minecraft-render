@@ -1,3 +1,3 @@
-import { MinecraftViewer } from "./MinecraftViewer";
+import { MinecraftViewer } from "./components/MinecraftViewer";
 
 export { MinecraftViewer };

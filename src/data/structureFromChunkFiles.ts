@@ -4,7 +4,7 @@ import { BlockState, NbtType, Structure } from "deepslate";
 const VERSION_20w17a = 2529;
 const VERSION_21w43a = 2844;
 
-export function loadStructure(files: NbtFile[]) {
+export function structureFromChunkFiles(files: NbtFile[]) {
     const masterFile = files[0];
 
     let minX = masterFile.root.getNumber("xPos");

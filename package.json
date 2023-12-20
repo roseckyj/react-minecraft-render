@@ -10,6 +10,14 @@
   ],
   "author": "xrosecky",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roseckyj/react-minecraft-render"
+  },
+  "bugs": {
+    "url": "https://github.com/roseckyj/react-minecraft-render/issues"
+  },
+  "homepage": "https://github.com/roseckyj/react-minecraft-render",
   "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
   "files": [

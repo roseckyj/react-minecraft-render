@@ -1,4 +1,10 @@
-import { NbtFile, NbtRegion, Structure, StructureRenderer } from "deepslate";
+import {
+    NbtFile,
+    NbtRegion,
+    Structure,
+    StructureRenderer,
+    clamp,
+} from "deepslate";
 import { mat4, vec2, vec3 } from "gl-matrix";
 import {
     MouseEvent,
@@ -9,30 +15,28 @@ import {
     useRef,
     useState,
 } from "react";
-import { loadStructure } from "./loadStructure";
-import { ResourceManager } from "./resources";
+import { ResourceManager } from "../data/ResourceManager";
+import { structureFromChunkFiles } from "../data/structureFromChunkFiles";
+import { clampVec3, negVec3 } from "../utils/math";
 
 export interface IMinecraftChunkProps {
+    /** OpenGL background color, array of 3 values between 0 and 1 (default: [0.1, 0.1, 0.11]) */
     backgroundColor?: [number, number, number];
+    /** Array of chunk coordinates to render, each entry must be a pair of two numbers (x, y) between 0 and 31 */
     chunks: [number, number][];
+    /** Path to the region file to load. May be a local file or a URL. */
     regionPath: string;
+    /** Path to the assets.zip file to load. May be a local file or a URL. (default: "/assets.zip") */
+    assetsPath?: string;
+    /** JSX element to display while loading (default: centered "Loading..." text) */
     spinner?: JSX.Element | string;
 }
 
-const clamp = (a: number, b: number, c: number) => {
-    return Math.max(b, Math.min(c, a));
-};
-
-const clampVec3 = (a: vec3, b: vec3, c: vec3) => {
-    a[0] = clamp(a[0], b[0], c[0]);
-    a[1] = clamp(a[1], b[1], c[1]);
-    a[2] = clamp(a[2], b[2], c[2]);
-};
-
-const negVec3 = (a: vec3) => {
-    return vec3.fromValues(-a[0], -a[1], -a[2]);
-};
-
+/**
+ * JSX Component for rendering a set of chunks from a minecraft Anvil region file.
+ * @param props Props for the component.
+ * @returns
+ */
 export function MinecraftViewer(props: IMinecraftChunkProps) {
     const [structure, setStructure] = useState<Structure | null>(null);
     const [renderer, setRenderer] = useState<StructureRenderer | null>(null);
@@ -158,7 +162,7 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
             const response = await fetch(props.regionPath);
             const buffer = await response.arrayBuffer();
 
-            const structure = loadStructure(
+            const structure = structureFromChunkFiles(
                 props.chunks
                     .map((chunk) => {
                         const chunkItem = NbtRegion.read(
@@ -174,7 +178,7 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
 
             const resources = new ResourceManager();
             await Promise.all([
-                resources.loadFromZip("/assets.zip"),
+                resources.loadFromZip(props.assetsPath || "/assets.zip"),
                 resources.loadBlocks(
                     "https://raw.githubusercontent.com/Arcensoth/mcdata/master/processed/reports/blocks/simplified/data.min.json"
                 ),
