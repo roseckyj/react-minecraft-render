@@ -10,15 +10,15 @@
   ],
   "author": "xrosecky",
   "license": "MIT",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
   "files": [
     "dist"
   ],
   "exports": {
     ".": {
-      "types": "./index.d.ts",
-      "default": "./index.js"
+      "types": "./dist/esm/index.d.ts",
+      "default": "./dist/esm/index.js"
     }
   },
   "peerDependencies": {
