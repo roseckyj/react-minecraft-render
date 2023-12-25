@@ -39,9 +39,9 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "major": "npm version major && npm publish",
-    "minor": "npm version minor && npm publish",
-    "patch": "npm version patch && npm publish",
+    "major": "npm version major && npm run build && npm publish",
+    "minor": "npm version minor && npm run build && npm publish",
+    "patch": "npm version patch && npm run build && npm publish",
     "prepublish": "npm run build"
   },
   "devDependencies": {
