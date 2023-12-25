@@ -152,7 +152,6 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
         return () => {
             window.removeEventListener("resize", resizeAndRender);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -197,7 +196,7 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
             setCrot([Math.PI / 4, Math.PI / 4]);
             setCdist(32);
         })();
-    }, [canvasRef, props.chunks, props.regionPath]);
+    }, [props.chunks, props.regionPath]);
 
     useEffect(() => {
         resize();
