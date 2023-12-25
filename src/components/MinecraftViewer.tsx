@@ -184,6 +184,7 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                 ),
             ]);
 
+            if (!canvasRef.current) return;
             const renderer = new StructureRenderer(
                 canvasRef.current.getContext("webgl2")!,
                 structure,
