@@ -1,5 +1,5 @@
 import ReactDOM from "react-dom/client";
-import { MinecraftViewer } from "../../src";
+import { MinecraftViewer } from "react-minecraft-viewer";
 
 const root = ReactDOM.createRoot(
     document.getElementById("root") as HTMLElement
