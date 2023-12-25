@@ -227,6 +227,7 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                 backgroundColor: `rgb(${bgColor[0] * 255}, ${
                     bgColor[1] * 255
                 }, ${bgColor[2] * 255})`,
+                position: "relative",
             }}
         >
             {!renderer &&
@@ -236,11 +237,11 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                             display: "flex",
                             justifyContent: "center",
                             alignItems: "center",
-                            width: "100%",
-                            height: "100%",
                             opacity: 0.2,
                             fontSize: "1.5em",
                             color: "white",
+                            position: "absolute",
+                            inset: 0,
                         }}
                     >
                         Loading...
