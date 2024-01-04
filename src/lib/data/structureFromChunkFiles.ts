@@ -5,7 +5,21 @@ const VERSION_20w17a = 2529;
 const VERSION_21w43a = 2844;
 
 export function structureFromChunkFiles(files: NbtFile[]) {
-    const masterFile = files[0];
+    let masterFile = files[0];
+
+    if (masterFile === undefined) {
+        while (files.length > 0) {
+            const file = files.pop();
+            if (file) {
+                masterFile = file;
+                break;
+            }
+        }
+        if (masterFile === undefined) {
+            const structure = new Structure([0, 0, 0]);
+            return structure;
+        }
+    }
 
     let minX = masterFile.root.getNumber("xPos");
     let minZ = masterFile.root.getNumber("zPos");
@@ -41,7 +55,7 @@ export function structureFromChunkFiles(files: NbtFile[]) {
             );
         });
         if (filledSections.length === 0) {
-            throw new Error("Empty chunk");
+            continue;
         }
         minY = Math.min(
             minY,
@@ -59,6 +73,11 @@ export function structureFromChunkFiles(files: NbtFile[]) {
         maxX = Math.max(maxX, xPos);
         minZ = Math.min(minZ, zPos);
         maxZ = Math.max(maxZ, zPos);
+    }
+
+    if (minY === Infinity || maxY === -Infinity) {
+        const structure = new Structure([0, 0, 0]);
+        return structure;
     }
 
     const structure = new Structure([
@@ -92,7 +111,7 @@ export function structureFromChunkFiles(files: NbtFile[]) {
             );
         });
         if (filledSections.length === 0) {
-            throw new Error("Empty chunk");
+            continue;
         }
 
         const K_palette = N ? "palette" : "Palette";

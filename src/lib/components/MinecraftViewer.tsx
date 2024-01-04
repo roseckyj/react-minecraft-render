@@ -29,6 +29,8 @@ export interface IMinecraftChunkProps {
     assetsPath?: string;
     /** JSX element to display while loading (default: centered "Loading..." text) */
     spinner?: JSX.Element | string;
+    /** Callback for errors that occur during loading */
+    onError?: (error: Error) => void;
 }
 
 /**
@@ -173,44 +175,62 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
 
         (async () => {
             if (!canvasRef.current) return;
+            try {
+                const response = await fetch(props.regionPath);
+                const buffer = await response.arrayBuffer();
 
-            const response = await fetch(props.regionPath);
-            const buffer = await response.arrayBuffer();
+                const structure = structureFromChunkFiles(
+                    chunks
+                        .map((chunk) => {
+                            const chunkItem = NbtRegion.read(
+                                new Uint8Array(buffer)
+                            ).getChunk(chunk[0] + chunk[1] * 32);
+                            if (chunkItem === null) return null;
+                            return chunkItem?.getFile();
+                        })
+                        .filter((chunk) => !!chunk) as NbtFile[]
+                );
 
-            const structure = structureFromChunkFiles(
-                chunks
-                    .map((chunk) => {
-                        const chunkItem = NbtRegion.read(
-                            new Uint8Array(buffer)
-                        ).getChunk(chunk[0] + chunk[1] * 32);
-                        if (chunkItem === null) return null;
-                        return chunkItem?.getFile();
-                    })
-                    .filter((chunk) => !!chunk) as NbtFile[]
-            );
+                if (!structure)
+                    props.onError &&
+                        props.onError(new Error("Failed to load structure"));
+                if (!structure.getSize())
+                    props.onError &&
+                        props.onError(new Error("Failed to load structure"));
+                if (
+                    structure.getSize()[0] === 0 ||
+                    structure.getSize()[1] === 0 ||
+                    structure.getSize()[2] === 0
+                ) {
+                    props.onError &&
+                        props.onError(new Error("Empty structure loaded"));
+                }
 
-            setStructure(structure);
+                setStructure(structure);
 
-            const resources = new ResourceManager();
-            await Promise.all([
-                resources.loadFromZip(props.assetsPath || "/assets.zip"),
-                resources.loadBlocks(
-                    "https://raw.githubusercontent.com/Arcensoth/mcdata/master/processed/reports/blocks/simplified/data.min.json"
-                ),
-            ]);
+                const resources = new ResourceManager();
+                await Promise.all([
+                    resources.loadFromZip(props.assetsPath || "/assets.zip"),
+                    resources.loadBlocks(
+                        "https://raw.githubusercontent.com/Arcensoth/mcdata/master/processed/reports/blocks/simplified/data.min.json"
+                    ),
+                ]);
 
-            if (!canvasRef.current) return;
-            const renderer = new StructureRenderer(
-                canvasRef.current.getContext("webgl2")!,
-                structure,
-                resources
-            );
+                if (!canvasRef.current) return;
+                const renderer = new StructureRenderer(
+                    canvasRef.current.getContext("webgl2")!,
+                    structure,
+                    resources
+                );
 
-            setRenderer(renderer);
+                setRenderer(renderer);
 
-            setCpos([-8, -structure.getSize()[1] + 16, -8]);
-            setCrot([Math.PI / 4, Math.PI / 4]);
-            setCdist(32);
+                setCpos([-8, -structure.getSize()[1] + 16, -8]);
+                setCrot([Math.PI / 4, Math.PI / 4]);
+                setCdist(32);
+            } catch (error) {
+                if (props.onError) props.onError(error as any);
+            }
         })();
     }, [chunks, props.regionPath]);
 
