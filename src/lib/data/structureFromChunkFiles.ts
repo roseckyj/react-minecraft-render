@@ -103,6 +103,7 @@ export function structureFromChunkFiles(files: NbtFile[]) {
                       .getList("palette", NbtType.Compound)
                 : section.has("Palette") &&
                   section.getList("Palette", NbtType.Compound);
+
             return (
                 palette &&
                 palette.filter(
@@ -110,6 +111,7 @@ export function structureFromChunkFiles(files: NbtFile[]) {
                 ).length > 0
             );
         });
+
         if (filledSections.length === 0) {
             continue;
         }
@@ -119,10 +121,34 @@ export function structureFromChunkFiles(files: NbtFile[]) {
 
         for (const section of filledSections) {
             const states = N ? section.getCompound("block_states") : section;
-            if (!states.has(K_palette) || !states.has(K_data)) {
+            if (!states.has(K_palette)) {
                 continue;
             }
+
             const yOffset = section.getNumber("Y") * 16 - minY;
+
+            if (!states.has(K_data)) {
+                // The whole chunk is filled with palette[0]
+                // Log the palette
+                const type = states
+                    .getList(K_palette, NbtType.Compound)
+                    .getCompound(0)
+                    .getString("Name");
+
+                for (let j = 0; j < 4096; j += 1) {
+                    const pos: [number, number, number] = [
+                        j & 0xf,
+                        yOffset + (j >> 8),
+                        (j >> 4) & 0xf,
+                    ];
+                    structure.addBlock(
+                        [pos[0] + xPos, pos[1], pos[2] + zPos],
+                        type
+                    );
+                }
+
+                continue;
+            }
             const palette = states.getList(K_palette, NbtType.Compound);
             const blockStates = states.getLongArray(K_data);
             const tempDataview = new DataView(new Uint8Array(8).buffer);
@@ -174,5 +200,6 @@ export function structureFromChunkFiles(files: NbtFile[]) {
     }
 
     // console.log("Loaded structure");
+    console.log(structure);
     return structure;
 }

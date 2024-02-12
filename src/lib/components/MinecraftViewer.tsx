@@ -220,7 +220,10 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                 const renderer = new StructureRenderer(
                     canvasRef.current.getContext("webgl2")!,
                     structure,
-                    resources
+                    resources,
+                    {
+                        useInvisibleBlockBuffer: false,
+                    }
                 );
 
                 setRenderer(renderer);
