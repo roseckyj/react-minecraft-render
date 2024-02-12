@@ -200,6 +200,5 @@ export function structureFromChunkFiles(files: NbtFile[]) {
     }
 
     // console.log("Loaded structure");
-    console.log(structure);
     return structure;
 }
