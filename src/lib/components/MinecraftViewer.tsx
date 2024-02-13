@@ -6,14 +6,7 @@ import {
     clamp,
 } from "deepslate";
 import { mat4, vec2, vec3 } from "gl-matrix";
-import {
-    MouseEvent,
-    WheelEvent,
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+import { WheelEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ResourceManager } from "../data/ResourceManager";
 import { structureFromChunkFiles } from "../data/structureFromChunkFiles";
 import { clampVec3, negVec3 } from "../utils/math";
@@ -43,7 +36,6 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
     const [renderer, setRenderer] = useState<StructureRenderer | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [dragPos, setDragPos] = useState<[number, number] | null>(null);
-    const [dragButton, setDragButton] = useState<number>(0);
     const [cRot, setCrot] = useState<[number, number]>([0, 0]);
     const [cPos, setCpos] = useState<[number, number, number]>([0, 0, 0]);
     const [cDist, setCdist] = useState<number>(16);
@@ -86,25 +78,26 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
         renderer.drawStructure(viewMatrix);
     }, [bgColor, cDist, cPos, cRot, renderer]);
 
-    const onMouseDown = useCallback((evt: MouseEvent) => {
+    type clientXY = { clientX: number; clientY: number; button: number };
+
+    const onMouseDown = useCallback((evt: clientXY) => {
         setDragPos([evt.clientX, evt.clientY]);
-        setDragButton(evt.button);
     }, []);
 
     const onMouseMove = useCallback(
-        (evt: MouseEvent) => {
+        (evt: clientXY) => {
             if (!structure) return;
 
             if (dragPos) {
                 const dx = (evt.clientX - dragPos[0]) / 500;
                 const dy = (evt.clientY - dragPos[1]) / 500;
-                if (dragButton === 2) {
+                if (evt.button === 2) {
                     vec2.add(cRot, cRot, [dx, dy]);
                     setCrot([
                         cRot[0] % (Math.PI * 2),
                         clamp(cRot[1], -Math.PI / 2, Math.PI / 2),
                     ]);
-                } else if (dragButton === 0 || dragButton === 1) {
+                } else if (evt.button === 0 || evt.button === 1) {
                     vec3.rotateY(cPos, cPos, [0, 0, 0], cRot[0]);
                     vec3.rotateX(cPos, cPos, [0, 0, 0], cRot[1]);
                     const d = vec3.fromValues(dx, -dy, 0);
@@ -121,7 +114,7 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                 render();
             }
         },
-        [cDist, cPos, cRot, dragButton, dragPos, render, structure]
+        [cDist, cPos, cRot, dragPos, render, structure]
     );
 
     const onMouseUp = useCallback(() => {
@@ -278,6 +271,26 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                 onMouseUp={() => onMouseUp()}
                 onWheel={(e) => onMouseWheel(e)}
                 onContextMenu={(e) => e.preventDefault()}
+                onTouchStart={(e) => {
+                    onMouseDown({
+                        clientX: e.touches[0].clientX,
+                        clientY: e.touches[0].clientY,
+                        button: e.touches.length > 1 ? 2 : 0,
+                    });
+                    e.preventDefault();
+                }}
+                onTouchMove={(e) => {
+                    onMouseMove({
+                        clientX: e.touches[0].clientX,
+                        clientY: e.touches[0].clientY,
+                        button: e.touches.length > 1 ? 2 : 0,
+                    });
+                    e.preventDefault();
+                }}
+                onTouchEnd={(e) => {
+                    onMouseUp();
+                    e.preventDefault();
+                }}
             />
         </div>
     );
