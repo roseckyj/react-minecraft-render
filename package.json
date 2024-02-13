@@ -1,6 +1,6 @@
 {
   "name": "react-minecraft-viewer",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "A Minecraft viewer built with React",
   "keywords": [
     "minecraft",
