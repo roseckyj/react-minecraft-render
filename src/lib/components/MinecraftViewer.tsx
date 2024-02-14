@@ -39,6 +39,8 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
     const [cRot, setCrot] = useState<[number, number]>([0, 0]);
     const [cPos, setCpos] = useState<[number, number, number]>([0, 0, 0]);
     const [cDist, setCdist] = useState<number>(16);
+    const [touchStartDistance, setTouchStartDistance] = useState<number>(0);
+    const [dragButton, setDragButton] = useState<number>(0);
 
     // Prevent rerendering, when only reference changes
     const [chunks, setChunks] = useState<[number, number][]>(props.chunks);
@@ -78,10 +80,16 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
         renderer.drawStructure(viewMatrix);
     }, [bgColor, cDist, cPos, cRot, renderer]);
 
-    type clientXY = { clientX: number; clientY: number; button: number };
+    type clientXY = {
+        clientX: number;
+        clientY: number;
+        button: number;
+        distance?: number;
+    };
 
     const onMouseDown = useCallback((evt: clientXY) => {
         setDragPos([evt.clientX, evt.clientY]);
+        setDragButton(evt.button);
     }, []);
 
     const onMouseMove = useCallback(
@@ -91,13 +99,13 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
             if (dragPos) {
                 const dx = (evt.clientX - dragPos[0]) / 500;
                 const dy = (evt.clientY - dragPos[1]) / 500;
-                if (evt.button === 2) {
+                if (dragButton === 2) {
                     vec2.add(cRot, cRot, [dx, dy]);
                     setCrot([
                         cRot[0] % (Math.PI * 2),
                         clamp(cRot[1], -Math.PI / 2, Math.PI / 2),
                     ]);
-                } else if (evt.button === 0 || evt.button === 1) {
+                } else if (dragButton === 0 || dragButton === 1) {
                     vec3.rotateY(cPos, cPos, [0, 0, 0], cRot[0]);
                     vec3.rotateX(cPos, cPos, [0, 0, 0], cRot[1]);
                     const d = vec3.fromValues(dx, -dy, 0);
@@ -111,8 +119,16 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                     return;
                 }
                 setDragPos([evt.clientX, evt.clientY]);
-                render();
             }
+
+            if (touchStartDistance && evt.distance) {
+                const newCDist =
+                    cDist * (touchStartDistance / evt.distance || 0.001);
+                setCdist(newCDist);
+                setTouchStartDistance(evt.distance);
+            }
+
+            render();
         },
         [cDist, cPos, cRot, dragPos, render, structure]
     );
@@ -276,7 +292,28 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                         clientX: e.touches[e.touches.length - 1].clientX,
                         clientY: e.touches[e.touches.length - 1].clientY,
                         button: e.touches.length > 1 ? 0 : 2,
+                        distance:
+                            e.touches.length === 1
+                                ? 0
+                                : vec2.distance(
+                                      [
+                                          e.touches[0].clientX,
+                                          e.touches[0].clientY,
+                                      ],
+                                      [
+                                          e.touches[1].clientX,
+                                          e.touches[1].clientY,
+                                      ]
+                                  ),
                     });
+                    setTouchStartDistance(
+                        e.touches.length === 1
+                            ? 0
+                            : vec2.distance(
+                                  [e.touches[0].clientX, e.touches[0].clientY],
+                                  [e.touches[1].clientX, e.touches[1].clientY]
+                              )
+                    );
                     e.preventDefault();
                 }}
                 onTouchMove={(e) => {
@@ -284,7 +321,36 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                         clientX: e.touches[e.touches.length - 1].clientX,
                         clientY: e.touches[e.touches.length - 1].clientY,
                         button: e.touches.length > 1 ? 0 : 2,
+                        distance:
+                            e.touches.length === 1
+                                ? 0
+                                : vec2.distance(
+                                      [
+                                          e.touches[0].clientX,
+                                          e.touches[0].clientY,
+                                      ],
+                                      [
+                                          e.touches[1].clientX,
+                                          e.touches[1].clientY,
+                                      ]
+                                  ),
                     });
+                    if (!touchStartDistance) {
+                        setTouchStartDistance(
+                            e.touches.length === 1
+                                ? 0
+                                : vec2.distance(
+                                      [
+                                          e.touches[0].clientX,
+                                          e.touches[0].clientY,
+                                      ],
+                                      [
+                                          e.touches[1].clientX,
+                                          e.touches[1].clientY,
+                                      ]
+                                  )
+                        );
+                    }
                     e.preventDefault();
                 }}
                 onTouchEnd={(e) => {
