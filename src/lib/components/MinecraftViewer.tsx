@@ -130,7 +130,16 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
 
             render();
         },
-        [cDist, cPos, cRot, dragPos, render, structure]
+        [
+            cDist,
+            cPos,
+            cRot,
+            dragButton,
+            dragPos,
+            render,
+            structure,
+            touchStartDistance,
+        ]
     );
 
     const onMouseUp = useCallback(() => {
@@ -288,68 +297,58 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                 onWheel={(e) => onMouseWheel(e)}
                 onContextMenu={(e) => e.preventDefault()}
                 onTouchStart={(e) => {
-                    onMouseDown({
-                        clientX: e.touches[e.touches.length - 1].clientX,
-                        clientY: e.touches[e.touches.length - 1].clientY,
-                        button: e.touches.length > 1 ? 0 : 2,
-                        distance:
-                            e.touches.length === 1
-                                ? 0
-                                : vec2.distance(
-                                      [
-                                          e.touches[0].clientX,
-                                          e.touches[0].clientY,
-                                      ],
-                                      [
-                                          e.touches[1].clientX,
-                                          e.touches[1].clientY,
-                                      ]
-                                  ),
-                    });
-                    setTouchStartDistance(
+                    const distance =
                         e.touches.length === 1
                             ? 0
                             : vec2.distance(
                                   [e.touches[0].clientX, e.touches[0].clientY],
                                   [e.touches[1].clientX, e.touches[1].clientY]
-                              )
-                    );
+                              );
+
+                    let clientX = 0,
+                        clientY = 0;
+                    for (let i = 0; i < e.touches.length; i++) {
+                        clientX += e.touches[i].clientX;
+                        clientY += e.touches[i].clientY;
+                    }
+                    clientX /= e.touches.length;
+                    clientY /= e.touches.length;
+
+                    onMouseDown({
+                        clientX,
+                        clientY,
+                        button: e.touches.length > 1 ? 0 : 2,
+                        distance,
+                    });
+                    setTouchStartDistance(distance);
                     e.preventDefault();
                 }}
                 onTouchMove={(e) => {
+                    const distance =
+                        e.touches.length === 1
+                            ? 0
+                            : vec2.distance(
+                                  [e.touches[0].clientX, e.touches[0].clientY],
+                                  [e.touches[1].clientX, e.touches[1].clientY]
+                              );
+
+                    let clientX = 0,
+                        clientY = 0;
+                    for (let i = 0; i < e.touches.length; i++) {
+                        clientX += e.touches[i].clientX;
+                        clientY += e.touches[i].clientY;
+                    }
+                    clientX /= e.touches.length;
+                    clientY /= e.touches.length;
+
                     onMouseMove({
-                        clientX: e.touches[e.touches.length - 1].clientX,
-                        clientY: e.touches[e.touches.length - 1].clientY,
+                        clientX,
+                        clientY,
                         button: e.touches.length > 1 ? 0 : 2,
-                        distance:
-                            e.touches.length === 1
-                                ? 0
-                                : vec2.distance(
-                                      [
-                                          e.touches[0].clientX,
-                                          e.touches[0].clientY,
-                                      ],
-                                      [
-                                          e.touches[1].clientX,
-                                          e.touches[1].clientY,
-                                      ]
-                                  ),
+                        distance,
                     });
                     if (!touchStartDistance) {
-                        setTouchStartDistance(
-                            e.touches.length === 1
-                                ? 0
-                                : vec2.distance(
-                                      [
-                                          e.touches[0].clientX,
-                                          e.touches[0].clientY,
-                                      ],
-                                      [
-                                          e.touches[1].clientX,
-                                          e.touches[1].clientY,
-                                      ]
-                                  )
-                        );
+                        setTouchStartDistance(distance);
                     }
                     e.preventDefault();
                 }}
