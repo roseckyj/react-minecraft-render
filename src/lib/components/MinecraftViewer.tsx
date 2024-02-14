@@ -273,17 +273,17 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                 onContextMenu={(e) => e.preventDefault()}
                 onTouchStart={(e) => {
                     onMouseDown({
-                        clientX: e.touches[0].clientX,
-                        clientY: e.touches[0].clientY,
-                        button: e.touches.length > 1 ? 2 : 0,
+                        clientX: e.touches[e.touches.length - 1].clientX,
+                        clientY: e.touches[e.touches.length - 1].clientY,
+                        button: e.touches.length > 1 ? 0 : 2,
                     });
                     e.preventDefault();
                 }}
                 onTouchMove={(e) => {
                     onMouseMove({
-                        clientX: e.touches[0].clientX,
-                        clientY: e.touches[0].clientY,
-                        button: e.touches.length > 1 ? 2 : 0,
+                        clientX: e.touches[e.touches.length - 1].clientX,
+                        clientY: e.touches[e.touches.length - 1].clientY,
+                        button: e.touches.length > 1 ? 0 : 2,
                     });
                     e.preventDefault();
                 }}
