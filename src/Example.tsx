@@ -3,7 +3,6 @@ import { MinecraftViewer } from "./lib";
 
 export function Example() {
     const [reload, setReload] = useState(0);
-    //const [chunks, setChunks] = useState<[number, number][]>([[16, 16]]);
 
     const chunks = useMemo(() => {
         const chunks: [number, number][] = [[16, 16]];
@@ -30,24 +29,11 @@ export function Example() {
         <>
             <MinecraftViewer
                 backgroundColor={[0.1, 0.1, 0.11]}
-                regionPath="/roseckyj/react-minecraft-render/region/weird.mca"
+                regionPath="/roseckyj/react-minecraft-render/region/spilas.mca"
                 assetsPath="/roseckyj/react-minecraft-render/assets.zip"
                 chunks={chunks}
                 onError={(error) => console.error(error)}
             />
-            <button
-                style={{ position: "fixed", top: 10, left: 10 }}
-                // onClick={() =>
-                //     setChunks([
-                //         [
-                //             Math.floor(Math.random() * 32),
-                //             Math.floor(Math.random() * 32),
-                //         ],
-                //     ])
-                // }
-            >
-                Change chunks
-            </button>
         </>
     );
 }

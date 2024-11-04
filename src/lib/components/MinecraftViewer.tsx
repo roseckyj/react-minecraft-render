@@ -3,7 +3,7 @@ import {
     NbtRegion,
     Structure,
     StructureRenderer,
-    clamp,
+    clamp
 } from "deepslate";
 import { mat4, vec2, vec3 } from "gl-matrix";
 import { WheelEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -24,6 +24,8 @@ export interface IMinecraftChunkProps {
     spinner?: JSX.Element | string;
     /** Callback for errors that occur during loading */
     onError?: (error: Error) => void;
+    /** Render 2D */
+    render2D?: boolean;
 }
 
 /**
@@ -41,12 +43,19 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
     const [cDist, setCdist] = useState<number>(16);
     const [touchStartDistance, setTouchStartDistance] = useState<number>(0);
     const [dragButton, setDragButton] = useState<number>(0);
+    const [fbo, setFbo] = useState<{
+        fbo: WebGLFramebuffer;
+        rgba: WebGLTexture;
+        depth: WebGLRenderbuffer;
+    } | null>(null);
 
     // Prevent rerendering, when only reference changes
     const [chunks, setChunks] = useState<[number, number][]>(props.chunks);
     const [bgColor, setBgColor] = useState<[number, number, number]>(
         props.backgroundColor || [0.1, 0.1, 0.11]
     );
+    const [postProcessingProgram, setPostProcessingProgram] = useState<WebGLProgram | null>(null);
+    const [postProcessingBuffer, setPostProcessingBuffer] = useState<WebGLBuffer | null>(null);
 
     useEffect(() => {
         if (JSON.stringify(chunks) === JSON.stringify(props.chunks)) return;
@@ -66,18 +75,58 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
         if (!renderer) return;
         if (!canvasRef.current) return;
 
-        const viewMatrix = mat4.create();
-        mat4.translate(viewMatrix, viewMatrix, [0, 0, -cDist]);
-        mat4.rotateX(viewMatrix, viewMatrix, cRot[1]);
-        mat4.rotateY(viewMatrix, viewMatrix, cRot[0]);
-        mat4.translate(viewMatrix, viewMatrix, cPos);
-
         const context = canvasRef.current.getContext("webgl2")!;
 
         context.clearColor(bgColor[0], bgColor[1], bgColor[2], 1);
         context.clearDepth(1);
         context.clear(context.COLOR_BUFFER_BIT | context.DEPTH_BUFFER_BIT);
-        renderer.drawStructure(viewMatrix);
+
+        const gl = (renderer as any).gl as WebGL2RenderingContext;
+
+        if (props.render2D) {
+            (renderer as any).projMatrix = mat4.ortho(mat4.create(), 0, 64, -64, 0, 0, 1000);
+            const viewMatrix = mat4.create();
+            // Make top-down view
+            mat4.rotateX(viewMatrix, viewMatrix, Math.PI / 2);
+            mat4.translate(viewMatrix, viewMatrix, [0, -500, 0]);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo?.fbo!);
+            gl.viewport(0, 0, 64 * 16, 64 * 16);
+            renderer.drawStructure(viewMatrix);
+
+
+            gl.useProgram(postProcessingProgram);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, canvasRef.current.width, canvasRef.current.height);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, fbo?.rgba!);
+            gl.uniform1i(gl.getUniformLocation(postProcessingProgram!, "uColor"), 0);
+
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, fbo?.depth!);
+            gl.uniform1i(gl.getUniformLocation(postProcessingProgram!, "uDepth"), 1);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, postProcessingBuffer);
+
+            const position = gl.getAttribLocation(postProcessingProgram!, "position");
+            gl.enableVertexAttribArray(position);
+            gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+        } else {
+            (renderer as any).projMatrix =  (renderer as any).getPerspective();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            const viewMatrix = mat4.create();
+            mat4.translate(viewMatrix, viewMatrix, [0, 0, -cDist]);
+            mat4.rotateX(viewMatrix, viewMatrix, cRot[1]);
+            mat4.rotateY(viewMatrix, viewMatrix, cRot[0]);
+            mat4.translate(viewMatrix, viewMatrix, cPos);
+            renderer.drawStructure(viewMatrix);
+        }
+
     }, [bgColor, cDist, cPos, cRot, renderer]);
 
     type clientXY = {
@@ -174,6 +223,7 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
             canvasRef.current.width,
             canvasRef.current.height
         );
+
     }, [renderer]);
 
     useEffect(() => {
@@ -244,6 +294,148 @@ export function MinecraftViewer(props: IMinecraftChunkProps) {
                     }
                 );
 
+                const gl = (renderer as any).gl as WebGL2RenderingContext;
+
+                // Setup postprocessing stuff
+                // -- cleanup
+                if (fbo) {
+                    gl.deleteFramebuffer(fbo.fbo);
+                    gl.deleteTexture(fbo.rgba);
+                    gl.deleteTexture(fbo.depth);
+                }
+                if (postProcessingProgram) {
+                    gl.deleteProgram(postProcessingProgram);
+                }
+                if (postProcessingBuffer) {
+                    gl.deleteBuffer(postProcessingBuffer);
+                }
+
+                // -- framebuffer
+                const rgba = gl.createTexture()!;
+                gl.bindTexture(gl.TEXTURE_2D, rgba);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.RGBA,
+                    64 * 16,
+                    64 * 16,
+                    0,
+                    gl.RGBA,
+                    gl.UNSIGNED_BYTE,
+                    null
+                );
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        
+                const depth = gl.createTexture()!;
+                gl.bindTexture(gl.TEXTURE_2D, depth);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.DEPTH_COMPONENT16,
+                    64 * 16,
+                    64 * 16,
+                    0,
+                    gl.DEPTH_COMPONENT,
+                    gl.UNSIGNED_SHORT,
+                    null
+                );
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+                const fbobject = gl.createFramebuffer()!;
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fbobject);
+                gl.framebufferTexture2D(
+                    gl.FRAMEBUFFER,
+                    gl.COLOR_ATTACHMENT0,
+                    gl.TEXTURE_2D,
+                    rgba,
+                    0
+                );
+                gl.framebufferTexture2D(
+                    gl.FRAMEBUFFER,
+                    gl.DEPTH_ATTACHMENT,
+                    gl.TEXTURE_2D,
+                    depth,
+                    0
+                );
+        
+                setFbo({ fbo: fbobject, rgba, depth });
+
+                // -- postprocessing shader
+                const vertexShader = gl.createShader(gl.VERTEX_SHADER)!;
+                gl.shaderSource(vertexShader, `
+                    precision highp float;
+                    
+                    attribute vec2 position;
+
+                    varying vec2 vUv;
+
+                    void main() {
+                        gl_Position = vec4(position, 0.0, 1.0);
+                        vUv = 0.5 * (position + 1.0);
+                    }
+                `);
+
+                gl.compileShader(vertexShader);
+                if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                    console.error(gl.getShaderInfoLog(vertexShader));
+                }
+
+                const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!;
+                gl.shaderSource(fragmentShader, `
+                    precision highp float;
+
+                    uniform sampler2D uColor;
+                    uniform sampler2D uDepth;
+                    varying vec2 vUv;
+                    
+                    void main() {
+                        float depthHere = texture2D(uDepth, vUv).r;
+
+                        float depthDifferenceSummary = 0.0;
+                        const float neighborhood = 1.0 / 64.0;
+                        const float step = (1.0 / 64.0) / 32.0;
+                        for (float dx = -neighborhood; dx <= neighborhood; dx += step) {
+                            for (float dy = -neighborhood; dy <= neighborhood; dy += step) {
+                                float depthThere = texture2D(uDepth, vUv + vec2(dx, dy)).r;
+                                depthDifferenceSummary += max(0.0, depthHere - depthThere);
+                            }
+                        }
+
+                        depthDifferenceSummary = depthDifferenceSummary / (32.0 * 32.0) * 100.0;
+                        depthDifferenceSummary = max(0.0, 1.0 - depthDifferenceSummary);
+                        gl_FragColor = vec4(texture2D(uColor, vUv).rgb * depthDifferenceSummary, 1.0);
+                    }
+                `);
+
+                gl.compileShader(fragmentShader);
+                if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                    console.error(gl.getShaderInfoLog(fragmentShader));
+                }
+
+                const program = gl.createProgram()!;
+                gl.attachShader(program, vertexShader);
+                gl.attachShader(program, fragmentShader);
+                gl.linkProgram(program);
+                
+                setPostProcessingProgram(program);
+
+                gl.deleteShader(vertexShader);
+                gl.deleteShader(fragmentShader);
+
+                // -- postprocessing buffer
+                const positionBuffer = gl.createBuffer()!;
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+
+                setPostProcessingBuffer(positionBuffer);
+
+                // Save renderer
                 setRenderer(renderer);
 
                 setCpos([-8, -structure.getSize()[1] + 16, -8]);
